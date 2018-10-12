@@ -1,0 +1,109 @@
+// ZSCRIPT 4.73
+[IConfig,4.73]
+
+/*
+What does the script do:
+- Use saved var file to get total numbers of subtool in order to rebuild import path.
+	.\VersionRebuild\TotalSubtoolCounts.zvr
+- Import each model as a subtool from the working directory.
+	.\VersionRebuild\0\foo.obj
+	.\VersionRebuild\1\bar.obj
+- Rename subtool to its original name use saved var file.
+	.\VersionRebuild\0\ModelName.zvr
+	.\VersionRebuild\1\ModelName.zvr
+- Reconstruct the subdivision level, load subdivision level information from saved var file.
+	.\VersionRebuild\0\SubdivisionLevel.zvr
+	.\VersionRebuild\1\SubdivisionLevel.zvr
+*/
+
+// Things to remember
+// 1. Subtool index start from zero, but count start from 1 (bullshit)
+
+// Set Environment variables
+[VarDef, ENV_WorkingDir, "VersionRebuild\"]
+[VarDef, ENV_ExportFormat, ".obj"]
+[VarDef, ENV_ModelFileName, "ModelName.zvr"]
+[VarDef, ENV_SubdVarFileName, "SubdivisionLevel.zvr"]
+[VarDef, ENV_TotalSubtoolCount, "TotalSubtoolCounts.zvr"]
+[VarDef, ENV_VaildExportInstancePath, [StrMerge, ENV_WorkingDir, "0"]]
+[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs\VersionRebuild\ZFileUtils\ZFileUtils.dll"]
+
+// Check if there is a vaild export instance
+[VarDef, indexPathExists, [FileExecute, [Var, ENV_ZFULib], "FolderExists", #ENV_VaildExportInstancePath]]
+[If, indexPathExists,
+	// Get total subtool count
+	[VarLoad, totalSubtoolCount, [StrMerge, ENV_WorkingDir, ENV_TotalSubtoolCount]]
+	
+	// Make sure PolyMesh3D is activating tool in order to import
+	// The reason to use PolyMesh3D because it have minimal poly count, good for performance
+	// If your ZBrush don't have the preset model, Sphere3D is another choice
+	// It must be a vaild 3D meshs under Tool select menu in order to copy && paste && replace by import
+	// Some Tool can't replace by import button (example ZSphere) even if it's a 3D meshs.
+	// You can't specify these tool as a starting point.
+	[IPress,Tool:PolyMesh3D]
+	// This will create a new tool named as "PolyMesh3D_1" contains a simple PolyMesh3D.
+	// And will replaced by import model later loop.
+	// The Paste action will create a same PolyMesh3D copy but as a subtool under current "PolyMesh3D_1".
+	// So import multiple file as subtool instead of new tool become possible.
+	[IPress,Tool:SubTool:Copy]
+	
+	
+	// Create loop count and use it as subtool index
+	[VarDef, loopCount, 0]
+	[Loop, totalSubtoolCount,
+	
+		// VersionRebuild\ + loopCount + "\"
+		[VarSet, indexBasedExportPath, [StrMerge, [StrMerge, ENV_WorkingDir, loopCount], "\"]]
+		[VarLoad, modelFileName, [StrMerge, indexBasedExportPath, ENV_ModelFileName]]
+		[VarLoad, subdivisionLevel, [StrMerge, indexBasedExportPath, ENV_SubdVarFileName]]
+		[VarSet, modelFileFullPath, [StrMerge, indexBasedExportPath, modelFileName]]
+		
+		// Paste to create new subtool
+		// The first paste become first subtool,
+		// other paste appear at bottom of first pasted subtool
+		// This is very strange behavior but I choose to ignore the first one.
+		[IPress,Tool:SubTool:Paste]
+		// Utilize exist copied PolyMesh3D subtool as virtual first paste
+		// Then replace it by import.
+		// At the end, the first subtool (ID zero for sure) will not replaced and keep exist as PolyMesh3D.
+		// A clean up required later.
+		[SubToolSelect, (loopCount + 1)]
+		
+		// Import OBJ format
+		// No model name rename required, ZBrush do it automatically(hope it works)
+		[FileNameSetNext, modelFileFullPath]
+		[IPress,Tool:Import]
+		
+		// Reconstruct subdiv level
+		// loop times is subdivisionLevel - 1 to rebuild
+		// The reconstruct will show lowest subdiv level after click,
+		// so no All low required to optimize performance
+		[Loop, (subdivisionLevel - 1),
+			[IPress,Tool:Geometry:Reconstruct Subdiv]
+		]
+		
+		// increase loopCount
+		[VarAdd, loopCount, 1]
+		[If, loopCount = totalSubtoolCount,
+		// Debug code, only do first one
+		//[If, loopCount = 0,
+			[LoopExit]
+		]
+	]
+	
+	// When the Loop completed, remove the first PolyMesh3D that not replaced by import.
+	// It's ID should be zero. I wonder if I don't use a magic number.
+	// Activate it
+	[SubToolSelect, 0]
+	// Remove it
+	[MessageOK, "Import and rebuild completed, click OK then click another OK to delete temp subtool(Just a trash you don't need it in any event trust me)."]
+	[IPress,Tool:Subtool:Delete]
+	[IPress,Layer:Clear]
+	[MessageOK, "Cleared"]
+,
+	// If path not exist
+	// This is commented debug code
+	//[MessageOK, ENV_VaildExportInstancePath]
+	[MessageOK, "No a vaild export instance detected, check your action."]
+	[Exit]
+]

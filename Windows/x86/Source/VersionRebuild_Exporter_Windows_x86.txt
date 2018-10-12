@@ -1,0 +1,126 @@
+// ZSCRIPT 4.73
+[IConfig,4.73]
+
+/*
+What does the script do:
+- Change all subdivision level to lowest before loop to optimize resource usage.
+- Only change subdivision level to highest for loop current item, then change it back to lowest after export.
+- Will not change subdivision level back to your project default, save project before execute, if you don't want to lost them.
+- Export each subtool under current ZTL item to index based multiple folders, the folder name is a key to make importer know the import sequence.
+	.\VersionRebuild\0\foo.obj
+	.\VersionRebuild\1\bar.obj
+- Save each subtool's subdivision level information(int) to a variable file in order to retrive subdivision level back after import.
+	.\VersionRebuild\0\SubdivisionLevel.zvr
+	.\VersionRebuild\1\SubdivisionLevel.zvr
+- Save total subtool count(int) to a variable file in order to make importer know how many loop times to perform.
+	.\VersionRebuild\TotalSubtoolCounts.zvr
+*/
+
+// Things to remember
+// 1. Subtool index start from zero, but count start from 1 (bullshit)
+
+// Set Environment variables
+[VarSet, ENV_WorkingDir, "VersionRebuild\"]
+[VarSet, ENV_ExportFormat, ".obj"]
+[VarSet, ENV_ModelFileName, "ModelName.zvr"]
+[VarSet, ENV_SubdVarFileName, "SubdivisionLevel.zvr"]
+[VarSet, ENV_TotalSubtoolCount, "TotalSubtoolCounts.zvr"]
+[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs\VersionRebuild\ZFileUtils\ZFileUtils.dll"]
+
+// Check working dir status, if no then create one
+[VarSet, workingDirExists, [FileExecute, [Var, ENV_ZFULib], "FolderExists", #ENV_WorkingDir]]
+[If, workingDirExists,
+	// ignore true
+,
+	// If no working dir
+	[VarSet, createFolderResult, [FileExecute, [Var, ENV_ZFULib], "MakeFolder", #ENV_WorkingDir]]
+	[If, createFolderResult,
+		[MessageOK, "Error occurred while creating root working folder."]
+	]
+]
+
+// Get subtool numbers in current ZTL item
+[VarSet, subToolsCount, [SubToolGetCount]]
+[VarSave, subToolsCount, [StrMerge, ENV_WorkingDir, ENV_TotalSubtoolCount]]
+
+// Loop through each subtool
+// Define loop index
+[VarSet, loopCount, 0]
+
+// Make sure subtool exist before actual loop
+[If, subToolsCount != 0,
+
+	// Change all subdivision level to lowest in order to reduce resource usage
+	[IPress,Tool:SubTool:All Low]
+	[Loop, subToolsCount,
+	
+		// Activate the subtool
+		[SubToolSelect, loopCount]
+		
+		// Set to highest subdivision
+		// (Code recorded from subtool master)
+		[IShowActions,0]
+		[ISet,Tool:Geometry:SDiv,15]
+		[IShowActions,-1]
+		
+		// Define subtool name
+		[VarSet, currentSubtoolName, ""]
+		
+		// Copy current subtool name to variable for future use
+		[VarSet, currentSubtoolName, [IGetTitle,Tool:ItemInfo]]
+		// Remove dot in the end of string
+		[VarSet, currentSubtoolName, [StrExtract, currentSubtoolName, 0, [StrLength,currentSubtoolName]-2]]
+		
+		// Define subtool subdivision level
+		[VarSet, currentSdivLevel, [IGet, Tool:Geometry:SDiv]]
+		
+		// Export the subtool under highest subdivision
+		
+		// Generate model path
+		[VarSet, subToolIndexPath, [StrMerge, loopCount, "\"]]
+		[VarSet, subtoolIndexBasedExportPath, [StrMerge, ENV_WorkingDir, subToolIndexPath]]
+		[VarSet, modelFileNameWithFormat, [StrMerge, currentSubtoolName, ENV_ExportFormat]]
+		[VarSet, modelFileFullPath, [StrMerge, subtoolIndexBasedExportPath, modelFileNameWithFormat]]
+		// Generate information path
+		[VarSet, modelNameInfoFileFullPath, [StrMerge, subtoolIndexBasedExportPath, ENV_ModelFileName]]
+		[VarSet, subdInfoFileFullPath, [StrMerge, subtoolIndexBasedExportPath, ENV_SubdVarFileName]]
+		
+		// Check folder status, or create it for prepare export
+		[VarSet, indexPathExists, [FileExecute, [Var, ENV_ZFULib], "FolderExists", #subtoolIndexBasedExportPath]]
+		[If, indexPathExists,
+			[MessageOK, "Index folder exists, you may already have a instance activating in the folder"]
+			[Exit]
+		,
+			// else no folder create it
+			[VarSet, createFolderResult, [FileExecute, [Var, ENV_ZFULib], "MakeFolder", #subtoolIndexBasedExportPath]]
+			// Check folder create result
+			[If, createFolderResult,
+				[MessageOK, "Error occurred while creating index folder."]
+				[Exit]
+			]
+		]
+		
+		// Do export
+		[FileNameSetNext, modelFileFullPath]
+		[IPress,Tool:Export]
+		// Save model file name information
+		[VarSave, modelFileNameWithFormat, modelNameInfoFileFullPath]
+		// Save subdivision information
+		[VarSave, currentSdivLevel, subdInfoFileFullPath]
+		
+		// Set to lowest subdivision after export to reduce resource usage
+		// (Code recorded from subtool master)
+		[IShowActions,0]
+		[ISet,Tool:Geometry:SDiv,1]
+		[IShowActions,-1]
+		
+		// Subtool index increase and control loop exit
+		[VarAdd, loopCount, 1]
+		[If, loopCount = subToolsCount,
+			[LoopExit]
+		]
+	]
+	
+	// Message all success done
+	[MessageOK, "Seems all subtool have been exported as a rebuild instance, now go to your previous version to execute importer."]
+]
