@@ -1,0 +1,22 @@
+Dependencies
+	Offline binary library that should not be sync to git repository.
+
+OsPlatform\Windows
+	Microsoft Windows.
+	
+	OsPlatform\Windows\Shared
+		Files shared by both CPU architecture.
+	OsPlatform\Windows\x64
+		Windows x64.
+		
+		OsPlatform\Windows\x64\Source
+			Code apply to x64 systems.
+		OsPlatform\Windows\x64\Uninstaller
+			Library uninstaller apply to x64 systems.
+	OsPlatform\Windows\x86
+		Windows x86.
+		
+		OsPlatform\Windows\x86\Source
+			Code apply to x86 systems.
+		OsPlatform\Windows\x86\Uninstaller
+			Library uninstaller apply to x86 systems.
