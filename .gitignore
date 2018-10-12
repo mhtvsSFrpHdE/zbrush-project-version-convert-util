@@ -1,0 +1,8 @@
+# Dependencies
+/Dependencies/
+
+# Compiled Zbrush ZScript files
+*.zsc
+
+# Installer
+*.exe
