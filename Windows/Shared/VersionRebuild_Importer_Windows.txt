@@ -26,7 +26,11 @@ What does the script do:
 [VarDef, ENV_SubdVarFileName, "SubdivisionLevel.zvr"]
 [VarDef, ENV_TotalSubtoolCount, "TotalSubtoolCounts.zvr"]
 [VarDef, ENV_VaildExportInstancePath, [StrMerge, ENV_WorkingDir, "0"]]
-[VarDef, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs64\VersionRebuild\ZFileUtils\ZFileUtils64.dll"]
+[If,[ZBrushInfo,16]==64
+	[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs64\VersionRebuild\ZFileUtils\ZFileUtils64.dll"]
+,
+	[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs\VersionRebuild\ZFileUtils\ZFileUtils.dll"]
+]
 
 // Check if there is a vaild export instance
 [VarDef, indexPathExists, [FileExecute, [Var, ENV_ZFULib], "FolderExists", #ENV_VaildExportInstancePath]]

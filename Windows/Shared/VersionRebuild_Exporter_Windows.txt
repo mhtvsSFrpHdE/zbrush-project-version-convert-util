@@ -25,7 +25,12 @@ What does the script do:
 [VarSet, ENV_ModelFileName, "ModelName.zvr"]
 [VarSet, ENV_SubdVarFileName, "SubdivisionLevel.zvr"]
 [VarSet, ENV_TotalSubtoolCount, "TotalSubtoolCounts.zvr"]
-[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs64\VersionRebuild\ZFileUtils\ZFileUtils64.dll"]
+[If,[ZBrushInfo,16]==64
+	[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs64\VersionRebuild\ZFileUtils\ZFileUtils64.dll"]
+,
+	[VarSet, ENV_ZFULib,"ZBRUSH_ZSTARTUP\ZPlugs\VersionRebuild\ZFileUtils\ZFileUtils.dll"]
+]
+
 
 // Check working dir status, if no then create one
 [VarSet, workingDirExists, [FileExecute, [Var, ENV_ZFULib], "FolderExists", #ENV_WorkingDir]]
